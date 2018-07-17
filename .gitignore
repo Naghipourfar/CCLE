@@ -102,3 +102,5 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+Data/CCLE_DepMap_18Q2_RNAseq_RPKM_20180502.gct
+Data/CCLE_DepMap_18Q2_RNAseq_reads_20180502.gct
