@@ -104,3 +104,5 @@ venv.bak/
 .mypy_cache/
 Data/CCLE_DepMap_18Q2_RNAseq_RPKM_20180502.gct
 Data/CCLE_DepMap_18Q2_RNAseq_reads_20180502.gct
+Code/RNA_RPKM.csv
+Code/RNA_readcount.csv

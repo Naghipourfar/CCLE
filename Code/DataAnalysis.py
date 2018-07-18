@@ -8,3 +8,7 @@ DATA_PATH = "/Users/Future/Desktop/Summer 2018/Bioinformatics/CCLE/Data/CCLE_Dep
 
 data = parse(DATA_PATH)
 print(data, type(data))
+
+print(data.data_df)
+print(type(data.data_df))
+
