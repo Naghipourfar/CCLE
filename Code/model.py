@@ -66,56 +66,56 @@ def feature_selection(x_data, y_data, k=500):
     mi = mutual_info_regression(x_data, y_data)
 
 
-# def main():
-#     data_directory = '../Data/Drugs_data/'
-#     compounds = os.listdir(data_directory)
-#     optimizers = [
-#         # keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=1e-6, nesterov=True),
-#         # keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True),
-#         # keras.optimizers.SGD(lr=0.001, momentum=0.9, decay=1e-6, nesterov=True),
-#         # keras.optimizers.Adagrad(lr=0.01, decay=1e-6)
-#         # keras.optimizers.Adadelta(lr=1.0, rho=0.95, decay=1e-6),
-#         # keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.99, decay=1e-6),
-#         keras.optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999)
-#     ]
-#     print("All Compounds:")
-#     print(compounds)
-#     for compound in compounds:
-#         print("*" * 50)
-#         print(compound)
-#         print("Loading Data...")
-#         x_data, y_data = load_data(data_path=data_directory + compound)
-#         print("Data has been Loaded!")
-#         x_data, y_data = normalize_data(x_data, y_data)
-#         print("Data has been normalized!")
-#         x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.3, shuffle=True)
-#         print("x_train shape\t:\t" + str(x_train.shape))
-#         print("y_train shape\t:\t" + str(y_train.shape))
-#         print("x_test shape\t:\t" + str(x_test.shape))
-#         print("y_test shape\t:\t" + str(y_test.shape))
-#         for optimizer in optimizers:
-#             model = create_model(x_train.shape[1], [1024, 64, 16], 1, optimizer)
-#             logger_path = '../Results/'
-#             if isinstance(optimizer, keras.optimizers.SGD):
-#                 session = keras.backend.get_session()
-#                 lr = session.run(optimizer.lr)
-#                 momentum = session.run(optimizer.momentum)
-#                 decay = session.run(optimizer.decay)
-#                 logger_path += '%s_SGD_lr_%1.4f_momentum_%1.4f_decay_%1.6f.log' % (
-#                     compound.split('.')[0], lr, momentum, decay)
-#             else:
-#                 logger_path += "%s_NAdam.log" % compound.split(".")[0]
-#             csv_logger = CSVLogger(logger_path)
-#             model.summary()
-#             model.fit(x=x_train,
-#                       y=y_train,
-#                       batch_size=32,
-#                       epochs=100,
-#                       validation_data=(x_test, y_test),
-#                       verbose=2,
-#                       shuffle=True,
-#                       callbacks=[csv_logger])
-#         break
+def main():
+    data_directory = '../Data/Drugs_data/'
+    compounds = os.listdir(data_directory)
+    optimizers = [
+        # keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=1e-6, nesterov=True),
+        # keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True),
+        # keras.optimizers.SGD(lr=0.001, momentum=0.9, decay=1e-6, nesterov=True),
+        # keras.optimizers.Adagrad(lr=0.01, decay=1e-6)
+        # keras.optimizers.Adadelta(lr=1.0, rho=0.95, decay=1e-6),
+        # keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.99, decay=1e-6),
+        keras.optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999)
+    ]
+    print("All Compounds:")
+    print(compounds)
+    for compound in compounds:
+        print("*" * 50)
+        print(compound)
+        print("Loading Data...")
+        x_data, y_data = load_data(data_path=data_directory + compound)
+        print("Data has been Loaded!")
+        x_data, y_data = normalize_data(x_data, y_data)
+        print("Data has been normalized!")
+        x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.3, shuffle=True)
+        print("x_train shape\t:\t" + str(x_train.shape))
+        print("y_train shape\t:\t" + str(y_train.shape))
+        print("x_test shape\t:\t" + str(x_test.shape))
+        print("y_test shape\t:\t" + str(y_test.shape))
+        for optimizer in optimizers:
+            model = create_model(x_train.shape[1], [1024, 64, 16], 1, optimizer)
+            logger_path = '../Results/'
+            if isinstance(optimizer, keras.optimizers.SGD):
+                session = keras.backend.get_session()
+                lr = session.run(optimizer.lr)
+                momentum = session.run(optimizer.momentum)
+                decay = session.run(optimizer.decay)
+                logger_path += '%s_SGD_lr_%1.4f_momentum_%1.4f_decay_%1.6f.log' % (
+                    compound.split('.')[0], lr, momentum, decay)
+            else:
+                logger_path += "%s_NAdam.log" % compound.split(".")[0]
+            csv_logger = CSVLogger(logger_path)
+            model.summary()
+            model.fit(x=x_train,
+                      y=y_train,
+                      batch_size=32,
+                      epochs=100,
+                      validation_data=(x_test, y_test),
+                      verbose=2,
+                      shuffle=True,
+                      callbacks=[csv_logger])
+        break
 
 
 def regressor_with_k_best_features(k=50):
@@ -134,6 +134,27 @@ def regressor_with_k_best_features(k=50):
         print("y_train shape\t:\t" + str(y_train.shape))
         print("x_test shape\t:\t" + str(x_test.shape))
         print("y_test shape\t:\t" + str(y_test.shape))
+        os.makedirs("../Results/%s" % compound.split(".")[0])
+
+        for k in [50, 40, 30, 20, 10]:
+            model = create_model(x_train.shape[1], [k // 2, k // 4], 1)
+            dir_name = "../Results/%s/%dFeaturesSelection" % (compound.split(".")[0], k)
+            os.makedirs(dir_name)
+            csv_logger = CSVLogger(dir_name + '/best_%s_%d.log' % (compound.split(".")[0], k))
+            model.fit(x=x_train,
+                      y=y_train,
+                      batch_size=64,
+                      epochs=500,
+                      validation_data=(x_test, y_test),
+                      verbose=2,
+                      shuffle=True,
+                      callbacks=[csv_logger])
+            import csv
+            with open("../Results/%s/%s.csv" % (compound.split(".")[0], compound.split(".")[0]), 'a') as file:
+                writer = csv.writer(file)
+                loss = model.evaluate(x_test.as_matrix(), y_test.as_matrix(), verbose=0)
+                loss.insert(0, k)
+                writer.writerow(loss)
 
 
 if __name__ == '__main__':
