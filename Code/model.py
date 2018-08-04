@@ -224,15 +224,18 @@ def classifier():
                       callbacks=[csv_logger])
 
 
-def plot_results(path="../Resutls/Classifier/"):
+def plot_results(path="../Results/Classifier/"):
     logs = os.listdir(path)
+    print(logs)
     for log in logs:
-        result = pd.read_csv(path + log)
-        plt.plot(result['epoch'], result["val_acc"])
-        plt.xlabel("Epochs")
-        plt.ylabel("Accuracy")
-        plt.title(log.split(".")[0])
-        plt.savefig("../Results/Classifier/images/%s.png" % log.split(".")[0])
+        if os.path.isfile(path + log) and not log.startswith("."):
+            result = pd.read_csv(path + log, delimiter=',')
+            plt.figure(figsize=(15, 10))
+            plt.plot(result['epoch'], result["val_acc"])
+            plt.xlabel("Epochs")
+            plt.ylabel("Accuracy")
+            plt.title(log.split(".")[0])
+            plt.savefig("../Results/Classifier/images/%s.png" % log.split(".")[0])
 
 
 if __name__ == '__main__':
