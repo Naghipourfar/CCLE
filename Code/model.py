@@ -224,5 +224,16 @@ def classifier():
                       callbacks=[csv_logger])
 
 
+def plot_results(path="../Resutls/Classifier/"):
+    logs = os.listdir(path)
+    for log in logs:
+        result = pd.read_csv(path + log)
+        plt.plot(result['epoch'], result["val_acc"])
+        plt.xlabel("Epochs")
+        plt.ylabel("Accuracy")
+        plt.title(log.split(".")[0])
+        plt.savefig("../Results/Classifier/images/%s.png" % log.split(".")[0])
+
+
 if __name__ == '__main__':
-    classifier()
+    plot_results()
