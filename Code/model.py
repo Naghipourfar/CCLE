@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from keras.callbacks import CSVLogger
-from keras.layers import Input, Dense
+from keras.layers import Input, Dense, Dropout, BatchNormalization
 from keras.models import Model
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.model_selection import train_test_split
@@ -23,24 +23,34 @@ from sklearn.preprocessing import normalize
 def create_regressor(n_features, layers, n_outputs, optimizer=None):
     input_layer = Input(shape=(n_features,))
     dense = Dense(layers[0], activation='relu', name="dense_0")(input_layer)
+    dense = BatchNormalization()(dense)
+    dense = Dropout(0.5)(dense)
+
     for i, layer in enumerate(layers[1:]):
         dense = Dense(layer, activation='relu', name="dense_{0}".format(i + 1))(dense)
+        dense = BatchNormalization()(dense)
+        dense = Dropout(0.5)(dense)
     dense = Dense(n_outputs, activation='sigmoid', name="output")(dense)
     model = Model(inputs=input_layer, outputs=dense)
     if optimizer is None:
-        optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True)
-    model.compile(optimizer=optimizer, loss=["mae"], metrics=["mse", "mape"])
+        # optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True)
+        optimizer = keras.optimizers.Adam()
+    model.compile(optimizer=optimizer, loss=["mse"], metrics=["mae"])
     return model
 
 
 def create_classifier(n_features, layers, n_outputs):
     input_layer = Input(shape=(n_features,))
     dense = Dense(layers[0], activation='relu', name="dense_0")(input_layer)
+    dense = BatchNormalization()(dense)
+    dense = Dropout(0.5)(dense)
     for i, layer in enumerate(layers[1:]):
         dense = Dense(layer, activation='relu', name="dense_{0}".format(i + 1))(dense)
+        dense = BatchNormalization()(dense)
+        dense = Dropout(0.5)(dense)
     dense = Dense(n_outputs, activation='sigmoid', name="output")(dense)
     model = Model(inputs=input_layer, outputs=dense)
-    model.compile(optimizer="sgd", loss="binary_crossentropy", metrics=["accuracy"])
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
     return model
 
 
@@ -79,7 +89,7 @@ def load_data(data_path="../Data/Drugs_data/drug_response.csv"):
 
 def normalize_data(x_data, y_data=None):
     x_data = pd.DataFrame(normalize(x_data.as_matrix(), axis=0, norm='max'))
-    if y_data:
+    if y_data is not None:
         y_data = pd.DataFrame(np.reshape(y_data.as_matrix(), (-1, 1)))
         y_data = pd.DataFrame(normalize(y_data.as_matrix(), axis=0, norm='max'))
         return x_data, y_data
@@ -94,12 +104,12 @@ def main():
     data_directory = '../Data/Drugs_data/'
     compounds = os.listdir(data_directory)
     optimizers = [
-        # keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=1e-6, nesterov=True),
-        # keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True),
-        # keras.optimizers.SGD(lr=0.001, momentum=0.9, decay=1e-6, nesterov=True),
-        # keras.optimizers.Adagrad(lr=0.01, decay=1e-6)
-        # keras.optimizers.Adadelta(lr=1.0, rho=0.95, decay=1e-6),
-        # keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.99, decay=1e-6),
+        keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=1e-6, nesterov=True),
+        keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True),
+        keras.optimizers.SGD(lr=0.001, momentum=0.9, decay=1e-6, nesterov=True),
+        keras.optimizers.Adagrad(lr=0.01, decay=1e-6),
+        keras.optimizers.Adadelta(lr=1.0, rho=0.95, decay=1e-6),
+        keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.99, decay=1e-6),
         keras.optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999)
     ]
     print("All Compounds:")
@@ -117,28 +127,28 @@ def main():
         print("y_train shape\t:\t" + str(y_train.shape))
         print("x_test shape\t:\t" + str(x_test.shape))
         print("y_test shape\t:\t" + str(y_test.shape))
-        for optimizer in optimizers:
-            model = create_regressor(x_train.shape[1], [1024, 64, 16], 1, optimizer)
-            logger_path = '../Results/'
-            if isinstance(optimizer, keras.optimizers.SGD):
-                session = keras.backend.get_session()
-                lr = session.run(optimizer.lr)
-                momentum = session.run(optimizer.momentum)
-                decay = session.run(optimizer.decay)
-                logger_path += '%s_SGD_lr_%1.4f_momentum_%1.4f_decay_%1.6f.log' % (
-                    compound.split('.')[0], lr, momentum, decay)
-            else:
-                logger_path += "%s_NAdam.log" % compound.split(".")[0]
-            csv_logger = CSVLogger(logger_path)
-            model.summary()
-            model.fit(x=x_train,
-                      y=y_train,
-                      batch_size=32,
-                      epochs=100,
-                      validation_data=(x_test, y_test),
-                      verbose=2,
-                      shuffle=True,
-                      callbacks=[csv_logger])
+        # for optimizer in optimizers:
+        model = create_regressor(x_train.shape[1], [1024, 64, 16], 1, None)
+        logger_path = '../Results/'
+        # if isinstance(optimizer, keras.optimizers.SGD):
+        #     session = keras.backend.get_session()
+        #     lr = session.run(optimizer.lr)
+        #     momentum = session.run(optimizer.momentum)
+        #     decay = session.run(optimizer.decay)
+        #     logger_path += '%s_SGD_lr_%1.4f_momentum_%1.4f_decay_%1.6f.log' % (
+        #         compound.split('.')[0], lr, momentum, decay)
+        # else:
+        logger_path += "%s_RMSProp.log" % compound.split(".")[0]
+        csv_logger = CSVLogger(logger_path)
+        model.summary()
+        model.fit(x=x_train,
+                  y=y_train,
+                  batch_size=32,
+                  epochs=100,
+                  validation_data=(x_test, y_test),
+                  verbose=2,
+                  shuffle=True,
+                  callbacks=[csv_logger])
         break
 
 
@@ -239,4 +249,4 @@ def plot_results(path="../Results/Classifier/"):
 
 
 if __name__ == '__main__':
-    plot_results()
+    classifier()
