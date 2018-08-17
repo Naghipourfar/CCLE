@@ -54,10 +54,13 @@ def create_classifier(n_features, layers, n_outputs):
     return model
 
 
-def load_data(data_path="../Data/Drugs_data/drug_response.csv"):
+def load_data(data_path="../Data/Drugs_data/drug_response.csv", feature_selection=False):
     data = pd.read_csv(data_path, index_col="Cell Line")
     y_data = data['IC50 (uM)']
     x_data = data.drop(['IC50 (uM)'], axis=1)
+    if feature_selection:
+        feature_names = list(pd.read_csv("../Data/BestFeatures.csv", header=None).loc[0, :])
+        x_data = data[feature_names]
     return x_data, y_data
 
 
