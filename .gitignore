@@ -1,6 +1,4 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
 *$py.class
 
 # C extensions
@@ -106,3 +104,18 @@ Data/CCLE_DepMap_18Q2_RNAseq_RPKM_20180502.gct
 Data/CCLE_DepMap_18Q2_RNAseq_reads_20180502.gct
 Code/RNA_RPKM.csv
 Code/RNA_readcount.csv
+/Results/
+.idea/CCLE.iml
+.idea/inspectionProfiles/
+.idea/libraries/
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/workspace.xml
+Data/
+Would skip repository Other Repos/Vougas_DeepLearning
+Would skip repository Other Repos/Data-Analysis
+Other Repos/.DS_Store
+Papers/
+Results/
+/Other Repos/
