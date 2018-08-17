@@ -55,35 +55,9 @@ def create_classifier(n_features, layers, n_outputs):
 
 
 def load_data(data_path="../Data/Drugs_data/drug_response.csv"):
-    if data_path.endswith("_classif.csv"):
-        data = pd.read_csv(data_path, index_col='Unnamed: 0.1')
-    else:
-        data = pd.read_csv(data_path, index_col='Unnamed: 0')
-    data.drop(labels=['Target',
-                      'FitType',
-                      'Primary Cell Line Name',
-                      'Compound',
-                      'Doses (uM)',
-                      'Activity Data (median)',
-                      'Activity SD',
-                      'Num Data',
-                      'Amax',
-                      ], axis=1, inplace=True)
-
-    if data.columns.__contains__("EC50 (uM)"):
-        data.drop(labels=['EC50 (uM)',
-                          'IC50 (uM)'], axis=1, inplace=True)
-
-    # label_encoder = LabelEncoder()
-    # label_encoder.fit(data['FitType'])
-    # label_encoder = label_encoder.transform(data['FitType'])
-    # data['FitType'] = pd.DataFrame(keras.utils.to_categorical(label_encoder))
-    if data_path.endswith("_classif.csv"):
-        y_data = data['class']
-        x_data = data.drop(['ActArea', 'class'], axis=1)
-    else:
-        y_data = data['ActArea']
-        x_data = data.drop(['ActArea'], axis=1)
+    data = pd.read_csv(data_path, index_col="Cell Line")
+    y_data = data['IC50 (uM)']
+    x_data = data.drop(['IC50 (uM)'], axis=1)
     return x_data, y_data
 
 
@@ -100,18 +74,10 @@ def feature_selection(x_data, y_data, k=500):
     mi = mutual_info_regression(x_data, y_data)
 
 
-def main():
-    data_directory = '../Data/Drugs_data/'
+def regressor():
+    data_directory = '../Data/Drugs_data/Regression/'
     compounds = os.listdir(data_directory)
-    optimizers = [
-        keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=1e-6, nesterov=True),
-        keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True),
-        keras.optimizers.SGD(lr=0.001, momentum=0.9, decay=1e-6, nesterov=True),
-        keras.optimizers.Adagrad(lr=0.01, decay=1e-6),
-        keras.optimizers.Adadelta(lr=1.0, rho=0.95, decay=1e-6),
-        keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.99, decay=1e-6),
-        keras.optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999)
-    ]
+
     print("All Compounds:")
     print(compounds)
     for compound in compounds:
@@ -150,6 +116,52 @@ def main():
                   shuffle=True,
                   callbacks=[csv_logger])
         break
+
+
+def regressor_with_different_optimizers():
+    data_path = "../Data/Drugs_data/Regression/ZD-6474_preprocessed.csv"
+    optimizers = [
+        keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=1e-6, nesterov=True),
+        keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True),
+        keras.optimizers.SGD(lr=0.001, momentum=0.9, decay=1e-6, nesterov=True),
+        keras.optimizers.Adagrad(lr=0.01, decay=1e-6),
+        keras.optimizers.Adadelta(lr=1.0, rho=0.95, decay=1e-6),
+        keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.99, decay=1e-6),
+        keras.optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999)
+    ]
+    print("Loading Data...")
+    x_data, y_data = load_data(data_path)
+    print("Data has been Loaded.")
+    print("Normalizing Data...")
+    x_data, y_data = normalize_data(x_data, y_data)
+    print("Data has been normalized.")
+    x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.3, shuffle=True)
+    print("x_train shape\t:\t" + str(x_train.shape))
+    print("y_train shape\t:\t" + str(y_train.shape))
+    print("x_test shape\t:\t" + str(x_test.shape))
+    print("y_test shape\t:\t" + str(y_test.shape))
+
+    n_features = x_train.shape[1]
+    layers = [1024, 256, 64, 8]
+    n_outputs = 1
+
+    for idx, optimizer in enumerate(optimizers):
+        model = create_regressor(n_features, layers, n_outputs, optimizer)
+        logger_path = "../Results/Optimizers/"
+        optimizer_name = str(optimizer.__class__).split(".")[-1].split("\'")[0] + "_"
+        optimizer_name += '_'.join(
+            ["%s_%.4f" % (key, value) for (key, value) in optimizer.get_config().items()])
+        optimizer_name += '.log'
+        csv_logger = CSVLogger(logger_path + optimizer_name)
+        model.summary()
+        model.fit(x=x_train,
+                  y=y_train,
+                  batch_size=32,
+                  epochs=100,
+                  validation_data=(x_test, y_test),
+                  verbose=2,
+                  shuffle=True,
+                  callbacks=[csv_logger])
 
 
 def regressor_with_k_best_features(k=50):
@@ -249,4 +261,4 @@ def plot_results(path="../Results/Classifier/"):
 
 
 if __name__ == '__main__':
-    classifier()
+    regressor_with_different_optimizers()
