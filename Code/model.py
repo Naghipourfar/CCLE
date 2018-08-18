@@ -34,8 +34,7 @@ def create_regressor(n_features, layers, n_outputs, optimizer=None):
     dense = Dense(n_outputs, activation='sigmoid', name="output")(dense)
     model = Model(inputs=input_layer, outputs=dense)
     if optimizer is None:
-        # optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True)
-        optimizer = keras.optimizers.Adam()
+        optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, decay=1e-6, nesterov=True)
     model.compile(optimizer=optimizer, loss=["mse"], metrics=["mae"])
     return model
 
@@ -92,10 +91,12 @@ def feature_selection(x_data, y_data, k=500):
     mi = mutual_info_regression(x_data, y_data)
 
 
-def regressor():
+def regressor(drug_name=None):
     data_directory = '../Data/CCLE/Regression/'
-    compounds = os.listdir(data_directory)
-
+    if drug_name:
+        compounds = [drug_name + ".csv"]
+    else:
+        compounds = os.listdir(data_directory)
     print("All Compounds:")
     print(compounds)
     for compound in compounds:
@@ -128,15 +129,17 @@ def regressor():
 
             result = pd.read_csv(logger_path, delimiter=',')
             plt.figure(figsize=(15, 10))
-            plt.plot(result['epoch'], result["val_acc"])
+            plt.plot(result['epoch'], result["loss"], label="Training Loss")
+            plt.plot(result['epoch'], result["val_loss"], label="Validation Loss")
             plt.xlabel("Epochs")
             plt.ylabel("MSE Loss")
             plt.xticks([i for i in range(0, 155, 5)])
-            plt.yticks(np.arange(0.5, 0, -0.05).tolist())
+            plt.yticks(np.arange(0.25, -0.05, -0.05).tolist())
             plt.title(compound.split(".")[0])
             plt.grid()
             plt.savefig("../Results/Regression/images/%s.png" % compound.split(".")[0])
             plt.close("all")
+            model.save("../Results/Regression/%s.h5" % compound.split(".")[0])
 
 
 def regressor_with_different_optimizers():
@@ -230,9 +233,12 @@ def regressor_with_k_best_features(k=50):
         plt.savefig("../Results/Drugs/%s/%s.png" % (compound.split(".")[0], compound.split(".")[0]))
 
 
-def classifier():
+def classifier(drug_name=None):
     data_directory = '../Data/CCLE/Classification/'
-    compounds = os.listdir(data_directory)
+    if drug_name:
+        compounds = [drug_name + ".csv"]
+    else:
+        compounds = os.listdir(data_directory)
     print("All Compounds:")
     print(compounds)
     for compound in compounds:
@@ -324,5 +330,50 @@ def plot_roc_curve(path="../Results/Classification/"):
         plt.show()
 
 
+def svm():
+    data_directory = '../Data/CCLE/Classification/'
+    compounds = os.listdir(data_directory)
+    for compound in compounds:
+        if compound.endswith(".csv"):
+            print("*" * 50)
+            print(compound)
+            print("Loading Data...")
+            x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
+            print("Data has been Loaded!")
+            x_data = normalize_data(x_data)
+            print("Data has been normalized!")
+            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.1, shuffle=True)
+            print("x_train shape\t:\t" + str(x_train.shape))
+            print("y_train shape\t:\t" + str(y_train.shape))
+            print("x_test shape\t:\t" + str(x_test.shape))
+            print("y_test shape\t:\t" + str(y_test.shape))
+
+            model = create_classifier(x_data.shape[1], [512, 128, 64, 16, 4], 2)
+            model.summary()
+            logger_path = "../Results/Classification/%s.log" % compound.split(".")[0]
+            csv_logger = CSVLogger(logger_path)
+            model.fit(x=x_train,
+                      y=y_train,
+                      batch_size=64,
+                      epochs=160,
+                      validation_data=(x_test, y_test),
+                      verbose=2,
+                      shuffle=True,
+                      callbacks=[csv_logger])
+            model.save(filepath="../Results/Classification/%s.h5" % compound.split(".")[0])
+            result = pd.read_csv(logger_path, delimiter=',')
+            plt.figure(figsize=(15, 10))
+            plt.plot(result['epoch'], result["val_acc"])
+            plt.xlabel("Epochs")
+            plt.ylabel("Accuracy")
+            plt.xticks([i for i in range(0, 165, 5)])
+            plt.yticks(np.arange(0, 1.05, 0.05).tolist())
+            plt.title(compound.split(".")[0])
+            plt.grid()
+            plt.savefig("../Results/Classification/images/%s.png" % compound.split(".")[0])
+            plt.close("all")
+    print("Finished!")
+
+
 if __name__ == '__main__':
-    regressor()
+    classifier("AZD6244")
