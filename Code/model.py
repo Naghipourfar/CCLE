@@ -8,7 +8,7 @@ from keras.callbacks import CSVLogger
 from keras.layers import Input, Dense, Dropout, BatchNormalization
 from keras.models import Model
 from sklearn.feature_selection import mutual_info_regression
-from sklearn.metrics import roc_auc_score, roc_curve, auc
+from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize, LabelEncoder
 
@@ -99,31 +99,44 @@ def regressor():
     print("All Compounds:")
     print(compounds)
     for compound in compounds:
-        print("*" * 50)
-        print(compound)
-        print("Loading Data...")
-        x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
-        print("Data has been Loaded!")
-        x_data, y_data = normalize_data(x_data, y_data)
-        print("Data has been normalized!")
-        x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.15, shuffle=True)
-        print("x_train shape\t:\t" + str(x_train.shape))
-        print("y_train shape\t:\t" + str(y_train.shape))
-        print("x_test shape\t:\t" + str(x_test.shape))
-        print("y_test shape\t:\t" + str(y_test.shape))
-        # for optimizer in optimizers:
-        model = create_regressor(x_train.shape[1], [1024, 256, 64, 4], 1, None)
-        logger_path = '../Results/Regression/' + compound.split(".")[0] + ".log"
-        csv_logger = CSVLogger(logger_path)
-        model.summary()
-        model.fit(x=x_train,
-                  y=y_train,
-                  batch_size=32,
-                  epochs=150,
-                  validation_data=(x_test, y_test),
-                  verbose=2,
-                  shuffle=True,
-                  callbacks=[csv_logger])
+        if compound.endswith("_preprocessed.csv"):
+            print("*" * 50)
+            print(compound)
+            print("Loading Data...")
+            x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
+            print("Data has been Loaded!")
+            x_data, y_data = normalize_data(x_data, y_data)
+            print("Data has been normalized!")
+            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.15, shuffle=True)
+            print("x_train shape\t:\t" + str(x_train.shape))
+            print("y_train shape\t:\t" + str(y_train.shape))
+            print("x_test shape\t:\t" + str(x_test.shape))
+            print("y_test shape\t:\t" + str(y_test.shape))
+            # for optimizer in optimizers:
+            model = create_regressor(x_train.shape[1], [1024, 256, 64, 4], 1, None)
+            logger_path = '../Results/Regression/' + compound.split(".")[0] + ".log"
+            csv_logger = CSVLogger(logger_path)
+            model.summary()
+            model.fit(x=x_train,
+                      y=y_train,
+                      batch_size=32,
+                      epochs=150,
+                      validation_data=(x_test, y_test),
+                      verbose=2,
+                      shuffle=True,
+                      callbacks=[csv_logger])
+
+            result = pd.read_csv(logger_path, delimiter=',')
+            plt.figure(figsize=(15, 10))
+            plt.plot(result['epoch'], result["val_acc"])
+            plt.xlabel("Epochs")
+            plt.ylabel("MSE Loss")
+            plt.xticks([i for i in range(0, 155, 5)])
+            plt.yticks(np.arange(0.5, 0, -0.05).tolist())
+            plt.title(compound.split(".")[0])
+            plt.grid()
+            plt.savefig("../Results/Regression/images/%s.png" % compound.split(".")[0])
+            plt.close("all")
 
 
 def regressor_with_different_optimizers():
