@@ -271,13 +271,15 @@ def classifier(drug_name=None):
             model.save(filepath="../Results/Classification/%s.h5" % compound.split(".")[0])
             result = pd.read_csv(logger_path, delimiter=',')
             plt.figure(figsize=(15, 10))
-            plt.plot(result['epoch'], result["val_acc"])
+            plt.plot(result['epoch'], result["acc"], label="Training Accuracy")
+            plt.plot(result['epoch'], result["val_acc"], label="Validation Accuracy")
             plt.xlabel("Epochs")
             plt.ylabel("Accuracy")
             plt.xticks([i for i in range(0, 165, 5)])
             plt.yticks(np.arange(0, 1.05, 0.05).tolist())
             plt.title(compound.split(".")[0])
             plt.grid()
+            plt.legend(loc="upper right")
             plt.savefig("../Results/Classification/images/%s.png" % compound.split(".")[0])
             plt.close("all")
     print("Finished!")
@@ -376,4 +378,4 @@ def svm():
 
 
 if __name__ == '__main__':
-    classifier("AZD6244")
+    classifier("Topotecan")
