@@ -423,6 +423,7 @@ def random_forest():
     compounds = os.listdir(data_directory)
     log_path = "../Results/Classification/ML/random_forest.csv"
     accuracies = {}
+
     for compound in compounds:
         name = compound.split(".")[0]
         print("*" * 50)
