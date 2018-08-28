@@ -8,12 +8,13 @@ from keras.callbacks import CSVLogger
 from keras.layers import Input, Dense, Dropout, BatchNormalization
 from keras.models import Model
 from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.metrics import accuracy_score
 from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize, LabelEncoder
-from sklearn.metrics import accuracy_score
-from sklearn.ensemble import RandomForestClassifier
+
 """
     Created by Mohsen Naghipourfar on 8/1/18.
     Email : mn7697np@gmail.com or naghipourfar@ce.sharif.edu
@@ -387,7 +388,35 @@ def support_vector_machine():
 
 
 def gradient_boosting():
-    pass
+    data_directory = '../Data/CCLE/Classification/'
+    compounds = os.listdir(data_directory)
+    log_path = "../Results/Classification/ML/gradient_boosting.csv"
+    accuracies = {}
+    for compound in compounds:
+        if compound.endswith(".csv"):
+            name = compound.split(".")[0]
+            print("*" * 50)
+            print(compound)
+            print("Loading Data...")
+            x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
+            print("Data has been Loaded!")
+            x_data = normalize_data(x_data)
+            print("Data has been normalized!")
+            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.1, shuffle=True)
+            print("x_train shape\t:\t" + str(x_train.shape))
+            print("y_train shape\t:\t" + str(y_train.shape))
+            print("x_test shape\t:\t" + str(x_test.shape))
+            print("y_test shape\t:\t" + str(y_test.shape))
+
+            classifier = GradientBoostingClassifier()
+            classifier = classifier.fit(x_train, y_train)
+            y_pred = classifier.predict(x_test)
+            accuracies[name] = accuracy_score(y_test, y_pred)
+            print(name, accuracies[name])
+    results = pd.DataFrame(data=accuracies)
+    results.to_csv(log_path)
+    print("Finished!")
+
 
 def random_forest():
     data_directory = '../Data/CCLE/Classification/'
@@ -418,6 +447,7 @@ def random_forest():
     results = pd.DataFrame(data=accuracies)
     results.to_csv(log_path)
     print("Finished!")
+
 
 def kfold(x_data, y_data, k=10):
     kf = KFold(n_splits=k, shuffle=True)
