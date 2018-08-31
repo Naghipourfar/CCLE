@@ -7,11 +7,12 @@ import pandas as pd
 from keras.callbacks import CSVLogger
 from keras.layers import Input, Dense, Dropout, BatchNormalization
 from keras.models import Model
-from sklearn.feature_selection import mutual_info_regression
+from sklearn import svm
 from sklearn.metrics import roc_curve, auc
+from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize, LabelEncoder
-
+from sklearn.metrics import accuracy_score
 """
     Created by Mohsen Naghipourfar on 8/1/18.
     Email : mn7697np@gmail.com or naghipourfar@ce.sharif.edu
@@ -19,6 +20,9 @@ from sklearn.preprocessing import normalize, LabelEncoder
     Github: https://github.com/naghipourfar
     Skype: mn7697np
 """
+
+n_epochs = 200
+batch_size = 32
 
 
 def create_regressor(n_features, layers, n_outputs, optimizer=None):
@@ -48,7 +52,7 @@ def create_classifier(n_features, layers, n_outputs):
         dense = Dense(layer, activation='relu', name="dense_{0}".format(i + 1))(dense)
         dense = BatchNormalization()(dense)
         dense = Dropout(0.5)(dense)
-    optimizer = keras.optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999, schedule_decay=0.008)
+    optimizer = keras.optimizers.Nadam(lr=0.0001, beta_1=0.9, beta_2=0.999, schedule_decay=0.008)
     if n_outputs > 1:
         dense = Dense(n_outputs, activation='softmax', name="output")(dense)
         loss = keras.losses.categorical_crossentropy
@@ -68,27 +72,23 @@ def load_data(data_path="../Data/CCLE/drug_response.csv", feature_selection=Fals
     else:
         y_data = data['class']
         x_data = data.drop(['class'], axis=1)
-        label_encoder = LabelEncoder()
-        y_data = label_encoder.fit_transform(y_data)
-        y_data = np.reshape(y_data, (-1, 1))
-        y_data = keras.utils.to_categorical(y_data, 2)
+        # label_encoder = LabelEncoder()
+        # y_data = label_encoder.fit_transform(y_data)
+        # y_data = np.reshape(y_data, (-1, 1))
+        # y_data = keras.utils.to_categorical(y_data, 2)
     if feature_selection:
         feature_names = list(pd.read_csv("../Data/BestFeatures.csv", header=None).loc[0, :])
         x_data = data[feature_names]
-    return x_data, y_data
+    return np.array(x_data), np.array(y_data)
 
 
 def normalize_data(x_data, y_data=None):
-    x_data = pd.DataFrame(normalize(x_data.as_matrix(), axis=0, norm='max'))
+    x_data = pd.DataFrame(normalize(np.array(x_data), axis=0, norm='max')).values
     if y_data is not None:
-        y_data = pd.DataFrame(np.reshape(y_data.as_matrix(), (-1, 1)))
-        y_data = pd.DataFrame(normalize(y_data.as_matrix(), axis=0, norm='max'))
-        return x_data, y_data
-    return x_data
-
-
-def feature_selection(x_data, y_data, k=500):
-    mi = mutual_info_regression(x_data, y_data)
+        y_data = pd.DataFrame(np.reshape(np.array(y_data), (-1, 1)))
+        y_data = pd.DataFrame(normalize(np.array(y_data), axis=0, norm='max'))
+        return np.array(x_data), np.array(y_data)
+    return np.array(x_data)
 
 
 def regressor(drug_name=None):
@@ -120,8 +120,8 @@ def regressor(drug_name=None):
             model.summary()
             model.fit(x=x_train,
                       y=y_train,
-                      batch_size=32,
-                      epochs=150,
+                      batch_size=batch_size,
+                      epochs=n_epochs,
                       validation_data=(x_test, y_test),
                       verbose=2,
                       shuffle=True,
@@ -133,7 +133,7 @@ def regressor(drug_name=None):
             plt.plot(result['epoch'], result["val_loss"], label="Validation Loss")
             plt.xlabel("Epochs")
             plt.ylabel("MSE Loss")
-            plt.xticks([i for i in range(0, 155, 5)])
+            plt.xticks([i for i in range(0, n_epochs + 5, 5)])
             plt.yticks(np.arange(0.25, -0.05, -0.05).tolist())
             plt.title(compound.split(".")[0])
             plt.grid()
@@ -180,8 +180,8 @@ def regressor_with_different_optimizers():
         model.summary()
         model.fit(x=x_train,
                   y=y_train,
-                  batch_size=32,
-                  epochs=250,
+                  batch_size=batch_size,
+                  epochs=n_epochs,
                   validation_data=(x_test, y_test),
                   verbose=2,
                   shuffle=True,
@@ -212,8 +212,8 @@ def regressor_with_k_best_features(k=50):
             csv_logger = CSVLogger(dir_name + '/best_%s_%d.log' % (compound.split(".")[0], k))
             model.fit(x=x_train,
                       y=y_train,
-                      batch_size=64,
-                      epochs=250,
+                      batch_size=batch_size,
+                      epochs=n_epochs,
                       validation_data=(x_test, y_test),
                       verbose=2,
                       shuffle=True,
@@ -250,39 +250,61 @@ def classifier(drug_name=None):
             print("Data has been Loaded!")
             x_data = normalize_data(x_data)
             print("Data has been normalized!")
-            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.1, shuffle=True)
-            print("x_train shape\t:\t" + str(x_train.shape))
-            print("y_train shape\t:\t" + str(y_train.shape))
-            print("x_test shape\t:\t" + str(x_test.shape))
-            print("y_test shape\t:\t" + str(y_test.shape))
+            # x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.05, shuffle=True)
+            # print("x_train shape\t:\t" + str(x_train.shape))
+            # print("y_train shape\t:\t" + str(y_train.shape))
+            # print("x_test shape\t:\t" + str(x_test.shape))
+            # print("y_test shape\t:\t" + str(y_test.shape))
 
-            model = create_classifier(x_data.shape[1], [512, 128, 64, 16, 4], 2)
-            model.summary()
-            logger_path = "../Results/Classification/%s.log" % compound.split(".")[0]
-            csv_logger = CSVLogger(logger_path)
-            model.fit(x=x_train,
-                      y=y_train,
-                      batch_size=64,
-                      epochs=160,
-                      validation_data=(x_test, y_test),
-                      verbose=2,
-                      shuffle=True,
-                      callbacks=[csv_logger])
-            model.save(filepath="../Results/Classification/%s.h5" % compound.split(".")[0])
-            result = pd.read_csv(logger_path, delimiter=',')
-            plt.figure(figsize=(15, 10))
-            plt.plot(result['epoch'], result["acc"], label="Training Accuracy")
-            plt.plot(result['epoch'], result["val_acc"], label="Validation Accuracy")
-            plt.xlabel("Epochs")
-            plt.ylabel("Accuracy")
-            plt.xticks([i for i in range(0, 165, 5)])
-            plt.yticks(np.arange(0, 1.05, 0.05).tolist())
-            plt.title(compound.split(".")[0])
-            plt.grid()
-            plt.legend(loc="upper right")
-            plt.savefig("../Results/Classification/images/%s.png" % compound.split(".")[0])
-            plt.close("all")
+            logger_path = "../Results/Classification/CV/"
+            # plt.figure(figsize=(15, 10))
+            # plt.title(compound.split(".")[0])
+            for k in range(5, 15, 5):
+                model = create_classifier(x_data.shape[1], [512, 128, 64, 16, 4], 2)
+                cross_validation_scores = []
+                log_name = "Stratified %s-%d-cv.csv" % (compound.split(".")[0], k)
+                for x_train_cv, x_validation, y_train_cv, y_validation in stratified_kfold(x_data, y_data, k=k):
+                    label_encoder = LabelEncoder()
+                    y_train_cv = label_encoder.fit_transform(y_train_cv)
+                    y_train_cv = np.reshape(y_train_cv, (-1, 1))
+                    y_train_cv = keras.utils.to_categorical(y_train_cv, 2)
+
+                    y_validation = label_encoder.transform(y_validation)
+                    y_validation = np.reshape(y_validation, (-1, 1))
+                    y_validation = keras.utils.to_categorical(y_validation, 2)
+                    model.fit(x=x_train_cv,
+                              y=y_train_cv,
+                              batch_size=batch_size,
+                              epochs=n_epochs,
+                              validation_data=(x_validation, y_validation),
+                              verbose=0,
+                              shuffle=True)
+                    score = model.evaluate(x_validation, y_validation, verbose=0)
+                    print("Stratified %d-fold %s %s: %.2f%%" % (
+                        k, compound.split(".")[0], model.metrics_names[1], score[1] * 100))
+                    cross_validation_scores.append(score[1] * 100)
+                model.save(filepath="../Results/Classification/%s.h5" % compound.split(".")[0])
+                np.savetxt(fname=logger_path + log_name, X=np.array(cross_validation_scores), delimiter=',')
+                # plt.plot(cross_validation_scores, label="%d-fold cross validation")
+            # result = pd.read_csv(logger_path, delimiter=',')
+            # plt.xlabel("Folds")
+            # plt.ylabel("Accuracy")
+            # plt.xticks([i for i in range(0, n_epochs + 5, 5)], rotation=90)
+            # plt.yticks(np.arange(0, 1.05, 0.05).tolist())
+            # plt.title(compound.split(".")[0])
+            # plt.grid()
+            # plt.legend(loc="upper right")
+            # plt.savefig("../Results/Classification/images/%s.png" % compound.split(".")[0])
+            # plt.close("all")
     print("Finished!")
+
+
+def encode_labels(y_data):
+    label_encoder = LabelEncoder()
+    y_data = label_encoder.fit_transform(y_data)
+    y_data = np.reshape(y_data, (-1, 1))
+    y_data = keras.utils.to_categorical(y_data, 2)
+    return y_data
 
 
 def plot_results(path="../Results/Classification/"):
@@ -332,11 +354,14 @@ def plot_roc_curve(path="../Results/Classification/"):
         plt.show()
 
 
-def svm():
+def support_vector_machine():
     data_directory = '../Data/CCLE/Classification/'
     compounds = os.listdir(data_directory)
+    log_path = "../Results/Classification/ML/svm.csv"
+    accuracies = {}
     for compound in compounds:
         if compound.endswith(".csv"):
+            name = compound.split(".")[0]
             print("*" * 50)
             print(compound)
             print("Loading Data...")
@@ -350,32 +375,41 @@ def svm():
             print("x_test shape\t:\t" + str(x_test.shape))
             print("y_test shape\t:\t" + str(y_test.shape))
 
-            model = create_classifier(x_data.shape[1], [512, 128, 64, 16, 4], 2)
-            model.summary()
-            logger_path = "../Results/Classification/%s.log" % compound.split(".")[0]
-            csv_logger = CSVLogger(logger_path)
-            model.fit(x=x_train,
-                      y=y_train,
-                      batch_size=64,
-                      epochs=160,
-                      validation_data=(x_test, y_test),
-                      verbose=2,
-                      shuffle=True,
-                      callbacks=[csv_logger])
-            model.save(filepath="../Results/Classification/%s.h5" % compound.split(".")[0])
-            result = pd.read_csv(logger_path, delimiter=',')
-            plt.figure(figsize=(15, 10))
-            plt.plot(result['epoch'], result["val_acc"])
-            plt.xlabel("Epochs")
-            plt.ylabel("Accuracy")
-            plt.xticks([i for i in range(0, 165, 5)])
-            plt.yticks(np.arange(0, 1.05, 0.05).tolist())
-            plt.title(compound.split(".")[0])
-            plt.grid()
-            plt.savefig("../Results/Classification/images/%s.png" % compound.split(".")[0])
-            plt.close("all")
+            classifier = svm.SVC(C=1.0, kernel='rbf')
+            classifier = classifier.fit(x_train, y_train)
+            y_pred = classifier.predict(x_test)
+            accuracies[name] = accuracy_score(y_test, y_pred)
+            print(name, accuracies[name])
+    results = pd.DataFrame(data=accuracies)
+    results.to_csv(log_path)
     print("Finished!")
 
 
+def gradient_boosting():
+    pass
+
+def random_forest():
+    pass
+
+def kfold(x_data, y_data, k=10):
+    kf = KFold(n_splits=k, shuffle=True)
+    for train_idx, test_idx in kf.split(x_data):
+        train_idx = list(train_idx)
+        test_idx = list(test_idx)
+        x_train, x_test = x_data[train_idx], x_data[test_idx]
+        y_train, y_test = y_data[train_idx], y_data[test_idx]
+        yield x_train, x_test, y_train, y_test
+
+
+def stratified_kfold(x_data, y_data, k=10):
+    skfold = StratifiedKFold(n_splits=k, shuffle=True)
+    for train_idx, test_idx in skfold.split(x_data, y_data):
+        train_idx = list(train_idx)
+        test_idx = list(test_idx)
+        x_train, x_test = x_data[train_idx], x_data[test_idx]
+        y_train, y_test = y_data[train_idx], y_data[test_idx]
+        yield x_train, x_test, y_train, y_test
+
+
 if __name__ == '__main__':
-    classifier("Topotecan")
+    support_vector_machine()
