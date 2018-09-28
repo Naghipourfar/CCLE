@@ -13,8 +13,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import normalize, LabelEncoder
-
+from sklearn.preprocessing import normalize, LabelEncoder, label_binarize
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.metrics import classification_report
+from keras.wrappers.scikit_learn import KerasClassifier
 """
     Created by Mohsen Naghipourfar on 8/1/18.
     Email : mn7697np@gmail.com or naghipourfar@ce.sharif.edu
@@ -23,7 +25,7 @@ from sklearn.preprocessing import normalize, LabelEncoder
     Skype: mn7697np
 """
 
-n_epochs = 200
+n_epochs = 300
 batch_size = 32
 
 
@@ -45,7 +47,9 @@ def create_regressor(n_features, layers, n_outputs, optimizer=None):
     return model
 
 
-def create_classifier(n_features, layers, n_outputs):
+def create_classifier(n_features=51, layers=None, n_outputs=1):
+    if layers is None:
+        layers = [512, 128, 64, 16, 4]
     input_layer = Input(shape=(n_features,))
     dense = Dense(layers[0], activation='relu', name="dense_0")(input_layer)
     dense = BatchNormalization()(dense)
@@ -67,7 +71,10 @@ def create_classifier(n_features, layers, n_outputs):
 
 
 def load_data(data_path="../Data/CCLE/drug_response.csv", feature_selection=False):
-    data = pd.read_csv(data_path, index_col="Cell Line")
+    if data_path.__contains__("/FS/"):
+        data = pd.read_csv(data_path)
+    else:
+        data = pd.read_csv(data_path, index_col="Cell Line")
     if data_path.__contains__("Regression"):
         y_data = data['IC50 (uM)']
         x_data = data.drop(['IC50 (uM)'], axis=1)
@@ -78,7 +85,7 @@ def load_data(data_path="../Data/CCLE/drug_response.csv", feature_selection=Fals
         # y_data = label_encoder.fit_transform(y_data)
         # y_data = np.reshape(y_data, (-1, 1))
         # y_data = keras.utils.to_categorical(y_data, 2)
-    if feature_selection:
+    if feature_selection and not data_path.__contains__("/FS/"):
         feature_names = list(pd.read_csv("../Data/BestFeatures.csv", header=None).loc[0, :])
         x_data = data[feature_names]
     return np.array(x_data), np.array(y_data)
@@ -236,7 +243,7 @@ def regressor_with_k_best_features(k=50):
 
 
 def classifier(drug_name=None):
-    data_directory = '../Data/CCLE/Classification/'
+    data_directory = '../Data/CCLE/Classification/FS/'
     if drug_name:
         compounds = [drug_name + ".csv"]
     else:
@@ -261,33 +268,77 @@ def classifier(drug_name=None):
             logger_path = "../Results/Classification/CV/"
             # plt.figure(figsize=(15, 10))
             # plt.title(compound.split(".")[0])
-            for k in range(5, 15, 5):
-                model = create_classifier(x_data.shape[1], [512, 128, 64, 16, 4], 2)
-                cross_validation_scores = []
-                log_name = "Stratified %s-%d-cv.csv" % (compound.split(".")[0], k)
-                for x_train_cv, x_validation, y_train_cv, y_validation in stratified_kfold(x_data, y_data, k=k):
-                    label_encoder = LabelEncoder()
-                    y_train_cv = label_encoder.fit_transform(y_train_cv)
-                    y_train_cv = np.reshape(y_train_cv, (-1, 1))
-                    y_train_cv = keras.utils.to_categorical(y_train_cv, 2)
+            model = None
+            for k in range(10, 15, 5):
+                model = KerasClassifier(build_fn=create_classifier,
+                                        epochs=500,
+                                        batch_size=64,
+                                        verbose=2)
+                # y_data = encode_labels(y_data, 2)
+                x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.25)
+                model.fit(x_train, y_train)
 
-                    y_validation = label_encoder.transform(y_validation)
-                    y_validation = np.reshape(y_validation, (-1, 1))
-                    y_validation = keras.utils.to_categorical(y_validation, 2)
-                    model.fit(x=x_train_cv,
-                              y=y_train_cv,
-                              batch_size=batch_size,
-                              epochs=n_epochs,
-                              validation_data=(x_validation, y_validation),
-                              verbose=0,
-                              shuffle=True)
-                    score = model.evaluate(x_validation, y_validation, verbose=0)
-                    print("Stratified %d-fold %s %s: %.2f%%" % (
-                        k, compound.split(".")[0], model.metrics_names[1], score[1] * 100))
-                    cross_validation_scores.append(score[1] * 100)
-                model.save(filepath="../Results/Classification/%s.h5" % compound.split(".")[0])
-                np.savetxt(fname=logger_path + log_name, X=np.array(cross_validation_scores), delimiter=',')
+                print(x_test.shape)
+                print(y_test.shape)
+
+                y_pred = model.predict(x_test)
+                y_pred = np.reshape(y_pred, (-1, 1))
+                y_test = np.reshape(y_test, (-1, 1))
+                print("Accuracy: %.4f" % (accuracy_score(y_test, y_pred) * 100))
+
+                print(y_pred.shape)
+                print(y_test.shape)
+                n_classes = y_pred.shape[1]
+                fpr = dict()
+                tpr = dict()
+                roc_auc = dict()
+                for i in range(n_classes):
+                    fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_pred[:, i])
+                    roc_auc[i] = auc(fpr[i], tpr[i])
+
+                # Compute micro-average ROC curve and ROC area
+                fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_pred.ravel())
+                roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+                plt.close("all")
+                plt.figure()
+                lw = 2
+                plt.plot(fpr[0], tpr[0], color='darkorange',
+                         lw=lw, label='ROC curve (area = %0.2f)' % roc_auc[0])
+                plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+                plt.xlim([0.0, 1.0])
+                plt.ylim([0.0, 1.05])
+                plt.xlabel('False Positive Rate')
+                plt.ylabel('True Positive Rate')
+                plt.title('Receiver operating characteristic for %s' % compound.split(".")[0])
+                plt.legend(loc="lower right")
+                # plt.show()
+                plt.savefig("../Results/Classification/ML/ROC/Deep Learning/%s.pdf" % (compound.split(".")[0]))
+
+                # log_name = "Stratified %s-%d-cv.csv" % (compound.split(".")[0], k)
+                # for x_train_cv, x_validation, y_train_cv, y_validation in stratified_kfold(x_data, y_data, k=k):
+                #     label_encoder = LabelEncoder()
+                #     y_train_cv = label_encoder.fit_transform(y_train_cv)
+                #     y_train_cv = np.reshape(y_train_cv, (-1, 1))
+                #     y_train_cv = keras.utils.to_categorical(y_train_cv, 2)
+                #
+                #     y_validation = label_encoder.transform(y_validation)
+                #     y_validation = np.reshape(y_validation, (-1, 1))
+                #     y_validation = keras.utils.to_categorical(y_validation, 2)
+                #     model.fit(x=x_train_cv,
+                #               y=y_train_cv,
+                #               batch_size=batch_size,
+                #               epochs=n_epochs,
+                #               validation_data=(x_validation, y_validation),
+                #               verbose=0,
+                #               shuffle=True)
+                #     score = model.evaluate(x_validation, y_validation, verbose=0)
+                #     print("Stratified %d-fold %s %s: %.2f%%" % (
+                #         k, compound.split(".")[0], model.metrics_names[1], score[1] * 100))
+                #     cross_validation_scores.append(score[1] * 100)
+                # model.save(filepath="../Results/Classification/%s.h5" % compound.split(".")[0])
+                # np.savetxt(fname=logger_path + log_name, X=np.array(cross_validation_scores), delimiter=',')
                 # plt.plot(cross_validation_scores, label="%d-fold cross validation")
+
             # result = pd.read_csv(logger_path, delimiter=',')
             # plt.xlabel("Folds")
             # plt.ylabel("Accuracy")
@@ -301,11 +352,11 @@ def classifier(drug_name=None):
     print("Finished!")
 
 
-def encode_labels(y_data):
+def encode_labels(y_data, n_classes=2):
     label_encoder = LabelEncoder()
     y_data = label_encoder.fit_transform(y_data)
     y_data = np.reshape(y_data, (-1, 1))
-    y_data = keras.utils.to_categorical(y_data, 2)
+    y_data = keras.utils.to_categorical(y_data, n_classes)
     return y_data
 
 
@@ -356,96 +407,84 @@ def plot_roc_curve(path="../Results/Classification/"):
         plt.show()
 
 
-def support_vector_machine():
-    data_directory = '../Data/CCLE/Classification/'
-    compounds = os.listdir(data_directory)
-    log_path = "../Results/Classification/ML/svm.csv"
+def machine_learning_classifiers(drug_name=None, alg_name="SVM"):
+    data_directory = '../Data/CCLE/Classification/FS/'
+    if not drug_name:
+        compounds = os.listdir(data_directory)
+    else:
+        compounds = [drug_name + ".csv"]
+    log_path = "../Results/Classification/ML/"
     accuracies = {}
-    for compound in compounds:
-        if compound.endswith(".csv"):
-            name = compound.split(".")[0]
-            print("*" * 50)
-            print(compound)
-            print("Loading Data...")
-            x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
-            print("Data has been Loaded!")
-            x_data = normalize_data(x_data)
-            print("Data has been normalized!")
-            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.1, shuffle=True)
-            print("x_train shape\t:\t" + str(x_train.shape))
-            print("y_train shape\t:\t" + str(y_train.shape))
-            print("x_test shape\t:\t" + str(x_test.shape))
-            print("y_test shape\t:\t" + str(y_test.shape))
+    for k in range(5, 15, 5):
+        log_name = alg_name + "-Stratified-%d-cv.csv" % k
+        for compound in compounds:
+            if compound.endswith(".csv") and not (
+                    compound.__contains__("PLX4720") or compound.__contains__("Panobinostat")):
+                name = compound.split(".")[0]
+                print("*" * 50)
+                print(compound)
+                print("Loading Data...")
+                x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
+                print("Data has been Loaded!")
+                x_data = normalize_data(x_data)
+                print("Data has been normalized!")
 
-            classifier = svm.SVC(C=1.0, kernel='rbf')
-            classifier = classifier.fit(x_train, y_train)
-            y_pred = classifier.predict(x_test)
-            accuracies[name] = accuracy_score(y_test, y_pred)
-            print(name, accuracies[name])
-    results = pd.DataFrame(data=accuracies)
-    results.to_csv(log_path)
-    print("Finished!")
+                accuracies[name] = 0.0
+                ml_classifier = OneVsRestClassifier(svm.SVC(C=1.0, kernel='rbf', probability=True))
+                if alg_name == "SVM":
+                    ml_classifier = OneVsRestClassifier(svm.SVC(C=1.0, kernel='rbf', probability=True))
+                elif alg_name == "RandomForest":
+                    ml_classifier = OneVsRestClassifier(RandomForestClassifier())
+                elif alg_name == "GradientBoosting":
+                    ml_classifier = OneVsRestClassifier(GradientBoostingClassifier(learning_rate=0.01))
 
+                y_data = label_binarize(y_data, classes=[0, 1])
+                print(y_data.shape)
+                n_classes = y_data.shape[1]
+                x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.25)
 
-def gradient_boosting():
-    data_directory = '../Data/CCLE/Classification/'
-    compounds = os.listdir(data_directory)
-    log_path = "../Results/Classification/ML/gradient_boosting.csv"
-    accuracies = {}
-    for compound in compounds:
-        if compound.endswith(".csv"):
-            name = compound.split(".")[0]
-            print("*" * 50)
-            print(compound)
-            print("Loading Data...")
-            x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
-            print("Data has been Loaded!")
-            x_data = normalize_data(x_data)
-            print("Data has been normalized!")
-            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.1, shuffle=True)
-            print("x_train shape\t:\t" + str(x_train.shape))
-            print("y_train shape\t:\t" + str(y_train.shape))
-            print("x_test shape\t:\t" + str(x_test.shape))
-            print("y_test shape\t:\t" + str(y_test.shape))
+                # for x_train_cv, x_validation, y_train_cv, y_validation in stratified_kfold(x_train, y_train, k=k):
+                #     ml_classifier = ml_classifier.fit(x_train_cv, y_train_cv)
+                #     y_pred = ml_classifier.predict(x_validation)
+                #     accuracies[name] += accuracy_score(y_validation, y_pred)
+                #     print(name, k, accuracy_score(y_validation, y_pred) * 100)
+                ml_classifier.fit(x_train, y_train)
 
-            classifier = GradientBoostingClassifier()
-            classifier = classifier.fit(x_train, y_train)
-            y_pred = classifier.predict(x_test)
-            accuracies[name] = accuracy_score(y_test, y_pred)
-            print(name, accuracies[name])
-    results = pd.DataFrame(data=accuracies)
-    results.to_csv(log_path)
-    print("Finished!")
+                y_pred = ml_classifier.predict(x_test)
+                y_pred = np.reshape(y_pred, (-1, 1))
+                target_names = ["class_0: Resistant", "class_1: Sensitive"]
+                string = classification_report(y_test, y_pred, target_names=target_names)
+                # with open("../Results/Classification/ML/Classification Report/%s/%s.txt" % (alg_name, name), "w") as f:
+                #     f.write(string)
+                fpr = dict()
+                tpr = dict()
+                roc_auc = dict()
+                for i in range(n_classes):
+                    fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_pred[:, i])
+                    roc_auc[i] = auc(fpr[i], tpr[i])
 
+                # Compute micro-average ROC curve and ROC area
+                fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_pred.ravel())
+                roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+                plt.close("all")
+                plt.figure()
+                lw = 2
+                plt.plot(fpr[0], tpr[0], color='darkorange',
+                         lw=lw, label='ROC curve (area = %0.2f)' % roc_auc[0])
+                plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+                plt.xlim([0.0, 1.0])
+                plt.ylim([0.0, 1.05])
+                plt.xlabel('False Positive Rate')
+                plt.ylabel('True Positive Rate')
+                plt.title('Receiver operating characteristic for %s' % name)
+                plt.legend(loc="lower right")
+                # plt.show()
+                plt.savefig("../Results/Classification/ML/ROC/%s/%s.pdf" % (alg_name, name))
+                # accuracies[name] /= k
+                # print("Mean Accuracy = %.4f" % accuracies[name])
 
-def random_forest():
-    data_directory = '../Data/CCLE/Classification/'
-    compounds = os.listdir(data_directory)
-    log_path = "../Results/Classification/ML/random_forest.csv"
-    accuracies = {}
-    for compound in compounds:
-        name = compound.split(".")[0]
-        print("*" * 50)
-        print(compound)
-        print("Loading Data...")
-        x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
-        print("Data has been Loaded!")
-        x_data = normalize_data(x_data)
-        print("Data has been normalized!")
-        x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.1, shuffle=True)
-        print("x_train shape\t:\t" + str(x_train.shape))
-        print("y_train shape\t:\t" + str(y_train.shape))
-        print("x_test shape\t:\t" + str(x_test.shape))
-        print("y_test shape\t:\t" + str(y_test.shape))
-
-        classifier = RandomForestClassifier()
-        classifier = classifier.fit(x_train, y_train)
-
-        y_pred = classifier.predict(x_test)
-        accuracies[name] = accuracy_score(y_test, y_pred)
-        print(name, accuracies[name])
-    results = pd.DataFrame(data=accuracies)
-    results.to_csv(log_path)
+        # results = pd.DataFrame(data=accuracies, index=[0])
+        # results.to_csv(log_path + log_name)
     print("Finished!")
 
 
@@ -457,6 +496,9 @@ def kfold(x_data, y_data, k=10):
         x_train, x_test = x_data[train_idx], x_data[test_idx]
         y_train, y_test = y_data[train_idx], y_data[test_idx]
         yield x_train, x_test, y_train, y_test
+    data_directory = '../Data/CCLE/Classification/'
+    compounds = os.listdir(data_directory)
+    log_path = "../Results/Classification/ML/"
 
 
 def stratified_kfold(x_data, y_data, k=10):
@@ -469,5 +511,25 @@ def stratified_kfold(x_data, y_data, k=10):
         yield x_train, x_test, y_train, y_test
 
 
+def generate_small_datas():
+    data_directory = '../Data/CCLE/Classification/FS/'
+    compounds = os.listdir(data_directory)
+    print("All Compounds:")
+    print(compounds)
+    for compound in compounds:
+        if compound.endswith(".csv"):
+            print(compound, end="\t")
+            x_data, y_data = load_data(data_directory + compound, feature_selection=True)
+            data = pd.DataFrame(x_data)
+            data['class'] = y_data
+            data.to_csv(data_directory + "FS/" + compound.split(".")[0] + ".csv")
+            print("Finished!")
+
+
 if __name__ == '__main__':
-    support_vector_machine()
+    # generate_small_datas()
+    classifier("17-AAG")
+    # machine_learning_classifiers(None, "SVM")
+    # machine_learning_classifiers(None, "RandomForest")
+    # machine_learning_classifiers(None, "GradientBoosting")
+#
