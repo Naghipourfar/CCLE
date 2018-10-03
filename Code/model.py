@@ -7,16 +7,17 @@ import pandas as pd
 from keras.callbacks import CSVLogger
 from keras.layers import Input, Dense, Dropout, BatchNormalization
 from keras.models import Model
+from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import classification_report
 from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import normalize, LabelEncoder, label_binarize
 from sklearn.multiclass import OneVsRestClassifier
-from sklearn.metrics import classification_report
-from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.preprocessing import normalize, LabelEncoder, label_binarize
+
 """
     Created by Mohsen Naghipourfar on 8/1/18.
     Email : mn7697np@gmail.com or naghipourfar@ce.sharif.edu
