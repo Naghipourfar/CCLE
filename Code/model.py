@@ -11,7 +11,6 @@ from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import accuracy_score
-from sklearn.metrics import classification_report
 from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection import train_test_split
@@ -48,7 +47,8 @@ def create_regressor(n_features, layers, n_outputs, optimizer=None):
     return model
 
 
-def random_classifier(drug_name=None):
+def random_classifier(drug_name=None, prediction_class=None):
+    accuracies = {}
     data_directory = '../Data/CCLE/Classification/FS/'
     if drug_name:
         compounds = [drug_name + ".csv"]
@@ -57,7 +57,9 @@ def random_classifier(drug_name=None):
     print("All Compounds:")
     print(compounds)
     for compound in compounds:
-        if compound.endswith(".csv"):
+        if compound.endswith(".csv")and not (
+                    compound.__contains__("PLX4720") or compound.__contains__("Panobinostat")):
+            name = compound.split(".")[0]
             print("*" * 50)
             print(compound)
             print("Loading Data...")
@@ -67,9 +69,20 @@ def random_classifier(drug_name=None):
             print("Data has been normalized!")
 
             n_samples = x_data.shape[0]
-            y_pred = np.random.random_integers(low=0, high=1, size=(n_samples, 1))
-
+            if prediction_class is None:
+                y_pred = np.random.random_integers(low=0, high=1, size=(n_samples, 1))
+            else:
+                if prediction_class == 1:
+                    y_pred = np.ones(shape=[n_samples, 1])
+                else:
+                    y_pred = np.zeros(shape=[n_samples, 1])
+            accuracies[name] = accuracy_score(y_data, y_pred)
             print("%s's Accuracy\t:\t%.4f%%" % (compound.split(".")[0], 100 * accuracy_score(y_data, y_pred)))
+
+    log_path = "../Results/Classification/ML/"
+    log_name = "Random" + "-" + str(prediction_class) + ".csv" if prediction_class is not None else "Random.csv"
+    accuracies = pd.DataFrame(accuracies, index=[0])
+    accuracies.to_csv(log_path + log_name)
 
 
 def create_classifier(n_features=51, layers=None, n_outputs=1):
@@ -466,50 +479,50 @@ def machine_learning_classifiers(drug_name=None, alg_name="SVM"):
                 y_data = label_binarize(y_data, classes=[0, 1])
                 print(y_data.shape)
                 n_classes = y_data.shape[1]
-                x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.25)
+                # x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.25)
 
-                # for x_train_cv, x_validation, y_train_cv, y_validation in stratified_kfold(x_train, y_train, k=k):
-                #     ml_classifier = ml_classifier.fit(x_train_cv, y_train_cv)
-                #     y_pred = ml_classifier.predict(x_validation)
-                #     accuracies[name] += accuracy_score(y_validation, y_pred)
-                #     print(name, k, accuracy_score(y_validation, y_pred) * 100)
-                ml_classifier.fit(x_train, y_train)
+                for x_train_cv, x_validation, y_train_cv, y_validation in stratified_kfold(x_data, y_data, k=k):
+                    ml_classifier = ml_classifier.fit(x_train_cv, y_train_cv)
+                    y_pred = ml_classifier.predict(x_validation)
+                    accuracies[name] += accuracy_score(y_validation, y_pred)
+                    print(name, k, accuracy_score(y_validation, y_pred) * 100)
+                # ml_classifier.fit(x_train, y_train)
 
-                y_pred = ml_classifier.predict(x_test)
-                y_pred = np.reshape(y_pred, (-1, 1))
-                target_names = ["class_0: Resistant", "class_1: Sensitive"]
-                string = classification_report(y_test, y_pred, target_names=target_names)
+                # y_pred = ml_classifier.predict(x_test)
+                # y_pred = np.reshape(y_pred, (-1, 1))
+                # target_names = ["class_0: Resistant", "class_1: Sensitive"]
+                # string = classification_report(y_test, y_pred, target_names=target_names)
                 # with open("../Results/Classification/ML/Classification Report/%s/%s.txt" % (alg_name, name), "w") as f:
                 #     f.write(string)
-                fpr = dict()
-                tpr = dict()
-                roc_auc = dict()
-                for i in range(n_classes):
-                    fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_pred[:, i])
-                    roc_auc[i] = auc(fpr[i], tpr[i])
-
-                # Compute micro-average ROC curve and ROC area
-                fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_pred.ravel())
-                roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
-                plt.close("all")
-                plt.figure()
-                lw = 2
-                plt.plot(fpr[0], tpr[0], color='darkorange',
-                         lw=lw, label='ROC curve (area = %0.2f)' % roc_auc[0])
-                plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-                plt.xlim([0.0, 1.0])
-                plt.ylim([0.0, 1.05])
-                plt.xlabel('False Positive Rate')
-                plt.ylabel('True Positive Rate')
-                plt.title('Receiver operating characteristic for %s' % name)
-                plt.legend(loc="lower right")
+                # fpr = dict()
+                # tpr = dict()
+                # roc_auc = dict()
+                # for i in range(n_classes):
+                #     fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_pred[:, i])
+                #     roc_auc[i] = auc(fpr[i], tpr[i])
+                #
+                # # Compute micro-average ROC curve and ROC area
+                # fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_pred.ravel())
+                # roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+                # plt.close("all")
+                # plt.figure()
+                # lw = 2
+                # plt.plot(fpr[0], tpr[0], color='darkorange',
+                #          lw=lw, label='ROC curve (area = %0.2f)' % roc_auc[0])
+                # plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+                # plt.xlim([0.0, 1.0])
+                # plt.ylim([0.0, 1.05])
+                # plt.xlabel('False Positive Rate')
+                # plt.ylabel('True Positive Rate')
+                # plt.title('Receiver operating characteristic for %s' % name)
+                # plt.legend(loc="lower right")
                 # plt.show()
-                plt.savefig("../Results/Classification/ML/ROC/%s/%s.pdf" % (alg_name, name))
-                # accuracies[name] /= k
-                # print("Mean Accuracy = %.4f" % accuracies[name])
+                # plt.savefig("../Results/Classification/ML/ROC/%s/%s.pdf" % (alg_name, name))
+                accuracies[name] /= k
+                print("Mean Accuracy = %.4f" % accuracies[name])
 
-        # results = pd.DataFrame(data=accuracies, index=[0])
-        # results.to_csv(log_path + log_name)
+        results = pd.DataFrame(data=accuracies, index=[0])
+        results.to_csv(log_path + log_name)
     print("Finished!")
 
 
@@ -553,7 +566,9 @@ def generate_small_datas():
 
 if __name__ == '__main__':
     # generate_small_datas()
-    random_classifier("17-AAG")
+    # random_classifier(None)
+    random_classifier(None, 0)
+    # random_classifier(None, 1)
     # machine_learning_classifiers(None, "SVM")
     # machine_learning_classifiers(None, "RandomForest")
     # machine_learning_classifiers(None, "GradientBoosting")
