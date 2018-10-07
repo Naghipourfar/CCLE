@@ -48,6 +48,30 @@ def create_regressor(n_features, layers, n_outputs, optimizer=None):
     return model
 
 
+def random_classifier(drug_name=None):
+    data_directory = '../Data/CCLE/Classification/FS/'
+    if drug_name:
+        compounds = [drug_name + ".csv"]
+    else:
+        compounds = os.listdir(data_directory)
+    print("All Compounds:")
+    print(compounds)
+    for compound in compounds:
+        if compound.endswith(".csv"):
+            print("*" * 50)
+            print(compound)
+            print("Loading Data...")
+            x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
+            print("Data has been Loaded!")
+            x_data = normalize_data(x_data)
+            print("Data has been normalized!")
+
+            n_samples = x_data.shape[0]
+            y_pred = np.random.random_integers(low=0, high=1, size=(n_samples, 1))
+
+            print("%s's Accuracy\t:\t%.4f%%" % (compound.split(".")[0], 100 * accuracy_score(y_data, y_pred)))
+
+
 def create_classifier(n_features=51, layers=None, n_outputs=1):
     if layers is None:
         layers = [512, 128, 64, 16, 4]
@@ -529,7 +553,7 @@ def generate_small_datas():
 
 if __name__ == '__main__':
     # generate_small_datas()
-    classifier("17-AAG")
+    random_classifier("17-AAG")
     # machine_learning_classifiers(None, "SVM")
     # machine_learning_classifiers(None, "RandomForest")
     # machine_learning_classifiers(None, "GradientBoosting")
