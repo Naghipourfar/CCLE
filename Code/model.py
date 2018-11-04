@@ -129,6 +129,20 @@ def load_data(data_path="../Data/CCLE/drug_response.csv", feature_selection=Fals
     return np.array(x_data), np.array(y_data)
 
 
+def produce_classification_data(compounds):
+    for compound in compounds:
+        name = compound.split(".")[0]
+        print(compound, end="\t")
+        data = pd.read_csv("../Data/CCLE/Regression/" + name + "_preprocessed.csv")
+        data['class'] = np.nan
+        data.loc[data['IC50 (uM)'] >= 8, 'class'] = 1  # resistant
+        data.loc[data['IC50 (uM)'] < 8] = 0  # sensitive
+        data.dropna(how='any', axis=0, inplace=True)
+        data.drop(["IC50 (uM)"], axis=1, inplace=True)
+        data.to_csv("../Data/CCLE/Classification/" + name + ".csv", index_label="Cell Line")
+        print("Finished!")
+
+
 def normalize_data(x_data, y_data=None):
     x_data = pd.DataFrame(normalize(np.array(x_data), axis=0, norm='max')).values
     if y_data is not None:
