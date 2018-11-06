@@ -15,7 +15,7 @@ A Tensorflow implementation of the deep neural networks for predicting drug resp
 
 ### File Illustration
 This repo is divided into 3 directories.
- 1. The `Code` directory contains all codes and jupyter notebooks.
+ 1. The `Code` directory contains all codes and ipython notebooks.
  2. The `Data` directory is place where data is in.
  3. The `Results` directory contains all results plots, CSVs, Logs and etc.
 
