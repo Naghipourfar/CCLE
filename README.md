@@ -21,4 +21,4 @@ This repo is divided into 3 directories.
 
 
 ### Sample Results
-Sample Results for Deep learning and Machine learning algorithms are saved in `Results` folder.
+Sample Results for Deep learning and Machine learning algorithms are saved in `Results` folder. There are also some ipython notebook examples in `examples` folder to use package.
