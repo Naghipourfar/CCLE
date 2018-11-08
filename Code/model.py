@@ -578,6 +578,20 @@ def generate_small_datas():
             print("Finished!")
 
 
+def generate_latex_table_for_data_description(compounds):
+    for compound in compounds:
+        data = pd.read_csv("../Data/CCLE/Classification/" + compound)
+        name = compound.split(".")[0]
+        # threshold = float(thresholds[thresholds[0] == name][1])
+        n_resistant = len(data[data['class'] == 1])
+        n_sensitive = len(data[data['class'] == 0])
+        n_total = n_resistant + n_sensitive
+        p_resistant = float(n_resistant / n_total) * 100.0
+        p_sensitive = float(n_sensitive / n_total) * 100.0
+        print("%s &  %d & %.2f" % (
+        compound.split(".")[0], n_resistant, p_resistant) + "\\%" + " & %d & %.2f" % (
+              n_sensitive, p_sensitive) + "\\% \\\\")
+
 if __name__ == '__main__':
     # generate_small_datas()
     # random_classifier(None)
