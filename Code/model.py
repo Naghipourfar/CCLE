@@ -57,8 +57,8 @@ def random_classifier(drug_name=None, prediction_class=None):
     print("All Compounds:")
     print(compounds)
     for compound in compounds:
-        if compound.endswith(".csv")and not (
-                    compound.__contains__("PLX4720") or compound.__contains__("Panobinostat")):
+        if compound.endswith(".csv") and not (
+                compound.__contains__("PLX4720") or compound.__contains__("Panobinostat")):
             name = compound.split(".")[0]
             print("*" * 50)
             print(compound)
@@ -589,8 +589,9 @@ def generate_latex_table_for_data_description(compounds):
         p_resistant = float(n_resistant / n_total) * 100.0
         p_sensitive = float(n_sensitive / n_total) * 100.0
         print("%s &  %d & %.2f" % (
-        compound.split(".")[0], n_resistant, p_resistant) + "\\%" + " & %d & %.2f" % (
-              n_sensitive, p_sensitive) + "\\% \\\\")
+            compound.split(".")[0], n_resistant, p_resistant) + "\\%" + " & %d & %.2f" % (
+                  n_sensitive, p_sensitive) + "\\% \\\\")
+
 
 if __name__ == '__main__':
     # generate_small_datas()
