@@ -540,7 +540,7 @@ def machine_learning_classifiers(drug_name=None, alg_name="SVM"):
     print("Finished!")
 
 
-def kfold(x_data, y_data, k=10):
+def kfold_cross_validation(x_data, y_data, k=10):
     kf = KFold(n_splits=k, shuffle=True)
     for train_idx, test_idx in kf.split(x_data):
         train_idx = list(train_idx)
