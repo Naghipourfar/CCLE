@@ -564,7 +564,7 @@ def stratified_kfold(x_data, y_data, k=10):
 
 
 def generate_small_datas():
-    data_directory = '../Data/CCLE/Classification/FS/'
+    data_directory = '../Data/CCLE/Classification/'
     compounds = os.listdir(data_directory)
     print("All Compounds:")
     print(compounds)
@@ -594,9 +594,9 @@ def generate_latex_table_for_data_description(compounds):
 
 
 if __name__ == '__main__':
-    # generate_small_datas()
+    generate_small_datas()
     # random_classifier(None)
-    random_classifier(None, 0)
+    # random_classifier(None, 0)
     # random_classifier(None, 1)
     # machine_learning_classifiers(None, "SVM")
     # machine_learning_classifiers(None, "RandomForest")
