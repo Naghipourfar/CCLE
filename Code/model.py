@@ -25,7 +25,8 @@ from sklearn.preprocessing import normalize, LabelEncoder, label_binarize
     Skype: mn7697np
 """
 
-
+n_epochs = 300
+batch_size = 32
 def create_regressor(n_features, layers, n_outputs, optimizer=None):
     input_layer = Input(shape=(n_features,))
     dense = Dense(layers[0], activation='relu', name="dense_0")(input_layer)
