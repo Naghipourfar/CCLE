@@ -25,9 +25,6 @@ from sklearn.preprocessing import normalize, LabelEncoder, label_binarize
     Skype: mn7697np
 """
 
-n_epochs = 300
-batch_size = 32
-
 
 def create_regressor(n_features, layers, n_outputs, optimizer=None):
     input_layer = Input(shape=(n_features,))
@@ -85,9 +82,27 @@ def random_classifier(drug_name=None, prediction_class=None):
     accuracies.to_csv(log_path + log_name)
 
 
+def create_SAE(n_features=50000, n_code=12):
+    layers = [2048, 1024, 256, 64, n_code, n_features]
+    input_layer = Input(shape=(n_features,))
+    dense = Dense(layers[0], activation='relu', name="dense_0")(input_layer)
+    dense = BatchNormalization()(dense)
+    dense = Dropout(0.5)(dense)
+    for i, layer in enumerate(layers[1:-1]):
+        dense = Dense(layer, activation='relu', name="dense_{0}".format(i + 1))(dense)
+        dense = BatchNormalization()(dense)
+        dense = Dropout(0.5)(dense)
+    dense = Dense(layers[-1], activation='sigmoid', name="output")(dense)
+    loss = "mae"
+    optimizer = keras.optimizers.nadam()
+    model = Model(inputs=input_layer, outputs=dense)
+    model.compile(optimizer=optimizer, loss=loss)
+    return model
+
+
 def create_classifier(n_features=51, layers=None, n_outputs=1):
     if layers is None:
-        layers = [512, 128, 64, 16, 4]
+        layers = [1024, 256, 64, 16, 4]
     input_layer = Input(shape=(n_features,))
     dense = Dense(layers[0], activation='relu', name="dense_0")(input_layer)
     dense = BatchNormalization()(dense)
@@ -96,7 +111,7 @@ def create_classifier(n_features=51, layers=None, n_outputs=1):
         dense = Dense(layer, activation='relu', name="dense_{0}".format(i + 1))(dense)
         dense = BatchNormalization()(dense)
         dense = Dropout(0.5)(dense)
-    optimizer = keras.optimizers.Nadam(lr=0.0001, beta_1=0.9, beta_2=0.999, schedule_decay=0.008)
+    optimizer = keras.optimizers.adamax()
     if n_outputs > 1:
         dense = Dense(n_outputs, activation='softmax', name="output")(dense)
         loss = keras.losses.categorical_crossentropy
@@ -325,10 +340,11 @@ def classifier(drug_name=None):
                 model = KerasClassifier(build_fn=create_classifier,
                                         epochs=500,
                                         batch_size=64,
-                                        verbose=2)
+                                        verbose=2,
+                                        )
                 # y_data = encode_labels(y_data, 2)
                 x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.25)
-                model.fit(x_train, y_train)
+                model.fit(x_train, y_train, validation_data=(x_test, y_test))
 
                 print(x_test.shape)
                 print(y_test.shape)
@@ -336,7 +352,7 @@ def classifier(drug_name=None):
                 y_pred = model.predict(x_test)
                 y_pred = np.reshape(y_pred, (-1, 1))
                 y_test = np.reshape(y_test, (-1, 1))
-                print("Accuracy: %.4f" % (accuracy_score(y_test, y_pred) * 100))
+                print("Accuracy: %.4f %%" % (accuracy_score(y_test, y_pred) * 100))
 
                 print(y_pred.shape)
                 print(y_test.shape)
@@ -565,7 +581,7 @@ def stratified_kfold(x_data, y_data, k=10):
 
 def generate_small_datas():
     data_directory = '../Data/CCLE/Classification/'
-    compounds = os.listdir(data_directory)
+    compounds = ["AEW541.csv"]
     print("All Compounds:")
     print(compounds)
     for compound in compounds:
@@ -593,11 +609,42 @@ def generate_latex_table_for_data_description(compounds):
                   n_sensitive, p_sensitive) + "\\% \\\\")
 
 
+def repr_learner(drug_name=None):
+    data_directory = "../Data/CCLE/Classification/"
+    compounds = [drug_name + ".csv"]
+    print("All Compounds:")
+    print(compounds)
+    for compound in compounds:
+        if compound.endswith(".csv"):
+            print("*" * 50)
+            print(compound)
+            print("Loading Data...")
+            x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
+            print("Data has been Loaded!")
+            x_data = normalize_data(x_data)
+            print("Data has been normalized!")
+            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.05, shuffle=True)
+            print("x_train shape\t:\t" + str(x_train.shape))
+            print("y_train shape\t:\t" + str(y_train.shape))
+            print("x_test shape\t:\t" + str(x_test.shape))
+            print("y_test shape\t:\t" + str(y_test.shape))
+
+            model = create_SAE(x_data.shape[1], n_code=12)
+            model.fit(x_train,
+                      x_train,
+                      epochs=500,
+                      batch_size=32,
+                      validation_data=(x_test, x_test),
+                      verbose=2)
+
+
 if __name__ == '__main__':
-    generate_small_datas()
+    # generate_small_datas()
     # random_classifier(None)
     # random_classifier(None, 0)
     # random_classifier(None, 1)
     # machine_learning_classifiers(None, "SVM")
     # machine_learning_classifiers(None, "RandomForest")
     # machine_learning_classifiers(None, "GradientBoosting")
+    # classifier("AEW541")
+    repr_learner("AEW541")
