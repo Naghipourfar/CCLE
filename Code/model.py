@@ -1,10 +1,11 @@
 import os
 
 import keras
+import keras.backend as backend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from keras.callbacks import CSVLogger
+from keras.callbacks import CSVLogger, History
 from keras.layers import Input, Dense, Dropout, BatchNormalization
 from keras.models import Model
 from keras.wrappers.scikit_learn import KerasClassifier
@@ -27,6 +28,8 @@ from sklearn.preprocessing import normalize, LabelEncoder, label_binarize
 
 n_epochs = 300
 batch_size = 32
+
+
 def create_regressor(n_features, layers, n_outputs, optimizer=None):
     input_layer = Input(shape=(n_features,))
     dense = Dense(layers[0], activation='relu', name="dense_0")(input_layer)
@@ -84,20 +87,51 @@ def random_classifier(drug_name=None, prediction_class=None):
 
 
 def create_SAE(n_features=50000, n_code=12):
-    layers = [2048, 1024, 256, 64, n_code, n_features]
     input_layer = Input(shape=(n_features,))
-    dense = Dense(layers[0], activation='relu', name="dense_0")(input_layer)
+    dense = Dense(2048, activation='relu', name="dense_0")(input_layer)
+    dense = BatchNormalization()(dense)
+    dense = Dropout(0.2)(dense)
+
+    dense = Dense(1024, activation='relu', name="dense_1")(dense)
     dense = BatchNormalization()(dense)
     dense = Dropout(0.5)(dense)
-    for i, layer in enumerate(layers[1:-1]):
-        dense = Dense(layer, activation='relu', name="dense_{0}".format(i + 1))(dense)
-        dense = BatchNormalization()(dense)
-        dense = Dropout(0.5)(dense)
-    dense = Dense(layers[-1], activation='sigmoid', name="output")(dense)
-    loss = "mae"
-    optimizer = keras.optimizers.nadam()
-    model = Model(inputs=input_layer, outputs=dense)
-    model.compile(optimizer=optimizer, loss=loss)
+    dense = Dense(256, activation='relu', name="dense_2")(dense)
+    dense = BatchNormalization()(dense)
+    dense = Dropout(0.5)(dense)
+    dense = Dense(64, activation='relu', name="dense_3")(dense)
+    dense = BatchNormalization()(dense)
+    dense = Dropout(0.5)(dense)
+    encoded = Dense(n_code, activation='relu', name="encoded")(dense)
+
+    dense = Dense(512, activation="relu", name="dense_4")(encoded)
+    dense = BatchNormalization()(dense)
+    dense = Dropout(0.5)(dense)
+    decoded = Dense(n_features, activation='sigmoid', name="decoded")(dense)
+    cl_output = Dense(2, activation="softmax", name="classifier")(encoded)
+
+    model = Model(inputs=input_layer, outputs=[decoded, cl_output])
+    model.summary()
+    lambda_value = 9.5581e-3
+
+    def contractive_loss(y_pred, y_true):
+        mse = backend.mean(backend.square(y_true - y_pred), axis=1)
+
+        w = backend.variable(value=model.get_layer('encoded').get_weights()[0])  # N inputs N_hidden
+        w = backend.transpose(w)  # N_hidden inputs N
+        h = model.get_layer('encoded').output
+        dh = h * (1 - h)  # N_batch inputs N_hidden
+
+        # N_batch inputs N_hidden * N_hidden inputs 1 = N_batch inputs 1
+        contractive = lambda_value * backend.sum(dh ** 2 * backend.sum(w ** 2, axis=1), axis=1)
+
+        return mse + contractive
+
+    reconstructor_loss = contractive_loss
+    classifier_loss = "categorical_crossentropy"
+    optimizer = keras.optimizers.Nadam(lr=0.005, beta_1=0.95)
+    model.compile(optimizer=optimizer, loss=[reconstructor_loss, classifier_loss],
+                  loss_weights=[0.005, 0.005],
+                  metrics={"decoded": ["mae", "mse", "mape"], "classifier": "acc"})
     return model
 
 
@@ -135,10 +169,10 @@ def load_data(data_path="../Data/CCLE/drug_response.csv", feature_selection=Fals
     else:
         y_data = data['class']
         x_data = data.drop(['class'], axis=1)
-        # label_encoder = LabelEncoder()
-        # y_data = label_encoder.fit_transform(y_data)
-        # y_data = np.reshape(y_data, (-1, 1))
-        # y_data = keras.utils.to_categorical(y_data, 2)
+        label_encoder = LabelEncoder()
+        y_data = label_encoder.fit_transform(y_data)
+        y_data = np.reshape(y_data, (-1, 1))
+        y_data = keras.utils.to_categorical(y_data, 2)
     if feature_selection and not data_path.__contains__("/FS/"):
         feature_names = list(pd.read_csv("../Data/BestFeatures.csv", header=None).loc[0, :])
         x_data = data[feature_names]
@@ -619,24 +653,40 @@ def repr_learner(drug_name=None):
         if compound.endswith(".csv"):
             print("*" * 50)
             print(compound)
+            drug_name = compound.split(".")[0]
             print("Loading Data...")
             x_data, y_data = load_data(data_path=data_directory + compound, feature_selection=True)
             print("Data has been Loaded!")
             x_data = normalize_data(x_data)
             print("Data has been normalized!")
-            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.05, shuffle=True)
+            x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.35, stratify=y_data,
+                                                                shuffle=True)
             print("x_train shape\t:\t" + str(x_train.shape))
             print("y_train shape\t:\t" + str(y_train.shape))
             print("x_test shape\t:\t" + str(x_test.shape))
             print("y_test shape\t:\t" + str(y_test.shape))
 
             model = create_SAE(x_data.shape[1], n_code=12)
+            os.makedirs("../Results/logs/", exist_ok=True)
+            os.makedirs("../Results/models/", exist_ok=True)
+            os.makedirs("../Results/SAE Data/", exist_ok=True)
+            csv_logger = CSVLogger("../Results/logs/SAE.log")
+            history = History()
+
             model.fit(x_train,
-                      x_train,
-                      epochs=500,
+                      [x_train, y_train],
+                      epochs=1000,
                       batch_size=32,
-                      validation_data=(x_test, x_test),
+                      validation_data=(x_test, [x_test, y_test]),
+                      callbacks=[csv_logger, history],
                       verbose=2)
+            print(history.history.keys())
+            layer_name = "encoded"
+            model.save(filepath="../Results/models/" + "SAE.h5")
+            encoded_layer_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
+            encoded_output = pd.DataFrame(encoded_layer_model.predict(x_data))
+            encoded_output = pd.concat([encoded_output, pd.DataFrame(y_data)], axis=1)
+            encoded_output.to_csv("../Results/SAE Data/" + drug_name + "encoded_SAE.csv")
 
 
 if __name__ == '__main__':
