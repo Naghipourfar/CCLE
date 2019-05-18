@@ -1,7 +1,7 @@
 import numpy as np
 import keras.backend as K
-from drugresnet.seya2.layers.imageproc import NormLayer
-from drugresnet.seya2 import batchwise_function
+from drugresnet.seya.layers.imageproc import NormLayer
+from drugresnet.seya import batchwise_function
 
 
 def zca_whitening(inputs, epsilon=0.1):

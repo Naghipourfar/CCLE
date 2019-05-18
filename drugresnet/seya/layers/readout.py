@@ -4,7 +4,7 @@ import theano.tensor as T
 from keras.layers.recurrent import GRU
 from keras.utils.theano_utils import shared_zeros
 
-from drugresnet.seya2 import apply_model
+from drugresnet.seya import apply_model
 
 
 def _masking(h_t, h_tm1, mask):

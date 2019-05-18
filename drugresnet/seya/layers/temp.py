@@ -5,7 +5,7 @@ from keras.layers.core import Layer
 from keras import initializations, activations
 from keras.layers.convolutional import MaxPooling1D
 
-from drugresnet.seya2 import GaussianKL, LambdaRegularizer
+from drugresnet.seya import GaussianKL, LambdaRegularizer
 
 
 class VariationalDense(Layer):

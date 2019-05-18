@@ -6,7 +6,7 @@ from keras.callbacks import Callback
 class ResetRNNState(Callback):
     """
     This is supposed to be used with stateful RNNs like
-    seya2.layers.recurrent.StatefulGRU
+    seya.layers.recurrent.StatefulGRU
 
     h: the rnn state
     func: a function that returns true when the state should be reset to zero

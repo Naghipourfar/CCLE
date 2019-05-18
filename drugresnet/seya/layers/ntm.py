@@ -7,7 +7,7 @@ floatX = theano.config.floatX
 from keras.layers.recurrent import Recurrent, GRU, LSTM
 from keras import backend as K
 
-from drugresnet.seya2 import rnn_states
+from drugresnet.seya import rnn_states
 tol = 1e-4
 
 

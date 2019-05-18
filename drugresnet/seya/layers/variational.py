@@ -2,7 +2,7 @@ from keras import backend as K
 from keras.layers.core import Layer
 from keras import initializations, activations
 
-from drugresnet.seya2 import GaussianKL
+from drugresnet.seya import GaussianKL
 
 
 class VariationalDense(Layer):

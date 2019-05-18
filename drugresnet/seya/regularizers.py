@@ -18,7 +18,7 @@ class GaussianKL(Regularizer):
 
     Notes:
     ------
-    See seya2.layers.variational.VariationalDense for usage example
+    See seya.layers.variational.VariationalDense for usage example
 
     """
     def __init__(self, mean, logsigma, prior_mean=0, prior_logsigma=0,
@@ -56,7 +56,7 @@ class ExponentialKL(Regularizer):
 
     Notes:
     ------
-    See seya2.layers.variational.VariationalExp for usage example
+    See seya.layers.variational.VariationalExp for usage example
 
     """
     def __init__(self, _lambda, prior_lambda=1.,

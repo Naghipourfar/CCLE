@@ -2,7 +2,7 @@ from keras import backend as K
 from keras.layers.core import Layer, Dense
 from keras import activations
 
-from drugresnet.seya2.layers import BagEmbedding
+from drugresnet.seya.layers import BagEmbedding
 
 import theano.tensor as T
 

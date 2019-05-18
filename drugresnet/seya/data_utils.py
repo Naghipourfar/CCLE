@@ -61,7 +61,7 @@ class DataTransformer():
 class RotateData(DataTransformer):
     '''Generate rotated images.
        This functions is supposed to be used with
-       `seya2.data_utils.TransformedDataset`
+       `seya.data_utils.TransformedDataset`
 
        Expected data shape batch_size x dim
     '''

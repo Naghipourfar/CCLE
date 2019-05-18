@@ -3,7 +3,7 @@ import numpy as np
 from keras import backend as K
 from keras.layers.core import Layer
 
-from drugresnet.seya2 import LambdaRegularizer
+from drugresnet.seya import LambdaRegularizer
 
 
 class ITLRegularizer(Layer):

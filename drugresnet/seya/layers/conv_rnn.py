@@ -9,7 +9,7 @@ from keras import initializations
 from keras import activations
 from keras import backend as K
 
-from drugresnet.seya2 import apply_layer
+from drugresnet.seya import apply_layer
 
 
 class ConvRNN(Recurrent):
@@ -140,7 +140,7 @@ class ConvRNN(Recurrent):
 
 class ConvGRU(ConvRNN):
     """ConvGRU is similar to ConvRNN, but with a GRU like state transition
-    For documentation and details check seya2.layers.conv_rnn.ConvRNN and
+    For documentation and details check seya.layers.conv_rnn.ConvRNN and
     keras.layers.recurrent.GRU
 
     """
