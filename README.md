@@ -1,4 +1,4 @@
-# DrugResNet
+# DrugNet
 A predictive model for drug response using deep neural networks
 
 <div float="left">
